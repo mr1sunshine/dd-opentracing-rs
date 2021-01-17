@@ -5,9 +5,9 @@ use std::{collections::HashMap, sync::Mutex};
 
 const CONSTANT_RATE_HASH_FACTOR: u64 = 1111111111111111111;
 const PRIORITY_SAMPLER_DEFAULT_RATE_KEY: &str = "service:,env:";
-const MAX_TRACE_ID_DOUBLE: f64 = std::f64::MAX as f64;
+const MAX_TRACE_ID_DOUBLE: f64 = std::u64::MAX as f64;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct SampleResult {
     pub rule_rate: f32,
     pub limiter_rate: f32,
@@ -15,17 +15,19 @@ pub struct SampleResult {
     pub sampling_priority: Option<SamplingPriority>,
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 pub struct SamplingRate {
     pub rate: f32,
     pub max_hash: u64,
 }
 
+#[derive(Debug)]
 struct PrioritySamplerData {
     pub agent_sampling_rates: HashMap<String, SamplingRate>,
     pub default_sampling_rate: SamplingRate,
 }
 
+#[derive(Debug)]
 pub struct PrioritySampler {
     data: Mutex<PrioritySamplerData>,
 }
@@ -54,7 +56,8 @@ impl PrioritySampler {
             applied_rate = rule.clone();
         }
 
-        let sampling_priority = if trace_id * CONSTANT_RATE_HASH_FACTOR >= applied_rate.max_hash {
+        let hashed_id = trace_id as u128 * CONSTANT_RATE_HASH_FACTOR as u128;
+        let sampling_priority = if hashed_id as u64 >= applied_rate.max_hash {
             Some(SamplingPriority::SamplerDrop)
         } else {
             Some(SamplingPriority::SamplerKeep)
@@ -109,5 +112,95 @@ impl PrioritySampler {
         data.agent_sampling_rates = rates;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn unconfigured() {
+        let sampler = PrioritySampler::new();
+        let result = sampler.sample("", "", 0).unwrap();
+        assert_eq!(result.priority_rate, 1.0);
+        assert_eq!(
+            result.sampling_priority,
+            Some(SamplingPriority::SamplerKeep)
+        );
+        let result = sampler.sample("env", "service", 1).unwrap();
+        assert_eq!(result.priority_rate, 1.0);
+        assert_eq!(
+            result.sampling_priority,
+            Some(SamplingPriority::SamplerKeep)
+        );
+    }
+
+    mod configured {
+        use super::*;
+        use mersenne_twister::MersenneTwister;
+        use rand::Rng;
+
+        const CONFIG_JSON: &str = r#"
+        {
+            "service:nginx,env:": 0.8,
+            "service:nginx,env:prod": 0.2
+        }"#;
+
+        #[test]
+        fn spans_dont_match() {
+            let config: Value = serde_json::from_str(CONFIG_JSON).unwrap();
+            let mut sampler = PrioritySampler::new();
+            sampler.configure(&config).unwrap();
+            let result = sampler
+                .sample("different env", "different service", 1)
+                .unwrap();
+            assert_eq!(result.priority_rate, 1.0);
+            assert_eq!(
+                result.sampling_priority,
+                Some(SamplingPriority::SamplerKeep)
+            );
+        }
+
+        fn sampled_test(environment: &str, service: &str) -> f32 {
+            let mut rng: MersenneTwister = Default::default();
+            let config: Value = serde_json::from_str(CONFIG_JSON).unwrap();
+            let mut sampler = PrioritySampler::new();
+            sampler.configure(&config).unwrap();
+
+            // Case 1, service:nginx,env: => 0.8
+            let mut count_sampled = 0;
+            let total = 100000;
+            for _ in 0..total {
+                let result = sampler
+                    .sample(environment, service, rng.next_u64())
+                    .unwrap();
+                assert!(
+                    (result.sampling_priority == Some(SamplingPriority::SamplerKeep)
+                        || result.sampling_priority == Some(SamplingPriority::SamplerDrop))
+                );
+                count_sampled += if result.sampling_priority == Some(SamplingPriority::SamplerKeep)
+                {
+                    1
+                } else {
+                    0
+                };
+            }
+            count_sampled as f32 / total as f32
+        }
+
+        #[test]
+        fn spans_can_be_sampled_config_1() {
+            // Case 1, service:nginx,env: => 0.8
+            let sample_rate = sampled_test("", "nginx");
+            assert!(sample_rate < 0.85 && sample_rate > 0.75);
+        }
+
+        #[test]
+        fn spans_can_be_sampled_config_2() {
+            // Case 2, service:nginx,env:prod => 0.2
+            let sample_rate = sampled_test("prod", "nginx");
+            assert!(sample_rate < 0.25 && sample_rate > 0.15);
+        }
     }
 }

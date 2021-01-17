@@ -1,5 +1,5 @@
-mod propagation_style;
-mod tracer_options;
-mod tracer;
-mod sampling_priority;
 mod priority_sampler;
+mod propagation_style;
+mod sampling_priority;
+mod tracer;
+mod tracer_options;
