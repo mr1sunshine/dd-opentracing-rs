@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::dd::propagation_style::PropagationStyle;
+use super::PropagationStyle;
 
 pub struct TracerOptions {
     pub agent_host: String,

@@ -1,11 +1,4 @@
-mod limiter;
-mod priority_sampler;
-mod propagation;
-mod propagation_style;
-mod rules_sampler;
-mod sampling_priority;
-mod span_buffer;
-mod time_point;
-mod tools;
+mod sample;
+mod span;
 mod tracer;
-mod tracer_options;
+mod utils;

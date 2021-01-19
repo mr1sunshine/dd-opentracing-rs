@@ -1,10 +1,5 @@
-use crate::dd::{
-    limiter::Limiter,
-    priority_sampler::{PrioritySampler, SampleResult},
-    sampling_priority::SamplingPriority,
-    time_point::TimePoint,
-    tools::{max_id_from_sample_rate, CONSTANT_RATE_HASH_FACTOR},
-};
+use super::{PrioritySampler, SampleResult, SamplingPriority};
+use crate::dd::utils::{max_id_from_sample_rate, Limiter, TimePoint, CONSTANT_RATE_HASH_FACTOR};
 use eyre::Result;
 use serde_json::Value;
 
