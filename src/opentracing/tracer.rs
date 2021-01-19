@@ -55,15 +55,11 @@ pub(crate) trait Tracer {
     ///
     /// A Span with no SpanReference options (e.g., opentracing::ChildOf() or
     /// opentracing::FollowsFrom()) becomes the root of its own trace.
-    fn start_span<S>(
-        &mut self,
+    fn start_span(
+        &self,
         operation_name: &str,
         option_list: Vec<Box<dyn StartSpanOption>>,
-    ) -> S
-    where
-        S: Span + Sized,
-        Self: Sized,
-    {
+    ) -> Box<dyn Span + '_> {
         let mut options = StartSpanOptions::default();
         for mut option in option_list {
             option.apply(&mut options);
@@ -72,10 +68,11 @@ pub(crate) trait Tracer {
         self.start_span_with_options(operation_name, &options)
     }
 
-    fn start_span_with_options<S>(&mut self, operation_name: &str, options: &StartSpanOptions) -> S
-    where
-        S: Span + Sized,
-        Self: Sized;
+    fn start_span_with_options(
+        &self,
+        operation_name: &str,
+        options: &StartSpanOptions,
+    ) -> Box<dyn Span + '_>;
 
     fn inject(&mut self, sc: &dyn SpanContext, writer: &dyn TextMapWriter) -> Result<()>;
     fn extract(&self, reader: &dyn TextMapReader) -> Result<Box<dyn SpanContext>>;
@@ -83,6 +80,11 @@ pub(crate) trait Tracer {
     fn close(&mut self);
 }
 
+// static mut GLOBAL_TRACER: Rc<dyn Tracer> = Rc::new();
+
+// pub(crate) fn init_global(tracer: Rc<dyn Tracer>) {
+//     static
+// }
 pub(crate) struct StartTimestamp {
     system_when: SystemTime,
     steady_when: Instant,
