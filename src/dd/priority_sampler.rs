@@ -1,4 +1,4 @@
-use crate::{
+use crate::dd::{
     sampling_priority::SamplingPriority,
     tools::{max_id_from_sample_rate, CONSTANT_RATE_HASH_FACTOR},
 };

@@ -1,4 +1,4 @@
-use crate::{opentracing, sampling_priority::SamplingPriority};
+use crate::{dd::sampling_priority::SamplingPriority, opentracing};
 use eyre::{eyre, Result};
 use std::{collections::HashMap, sync::Mutex};
 

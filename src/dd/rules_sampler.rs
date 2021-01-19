@@ -1,4 +1,4 @@
-use crate::{
+use crate::dd::{
     limiter::Limiter,
     priority_sampler::{PrioritySampler, SampleResult},
     sampling_priority::SamplingPriority,

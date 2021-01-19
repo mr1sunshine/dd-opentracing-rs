@@ -1,4 +1,4 @@
-use crate::time_point::TimePoint;
+use crate::dd::time_point::TimePoint;
 use eyre::{eyre, Result};
 #[cfg(test)]
 use mock_instant::Instant;
