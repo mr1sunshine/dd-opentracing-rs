@@ -1,18 +1,30 @@
-use crate::sampling_priority::SamplingPriority;
+use crate::{
+    sampling_priority::SamplingPriority,
+    tools::{max_id_from_sample_rate, CONSTANT_RATE_HASH_FACTOR},
+};
 use eyre::{eyre, Result};
 use serde_json::Value;
 use std::{collections::HashMap, sync::Mutex};
 
-const CONSTANT_RATE_HASH_FACTOR: u64 = 1111111111111111111;
 const PRIORITY_SAMPLER_DEFAULT_RATE_KEY: &str = "service:,env:";
-const MAX_TRACE_ID_DOUBLE: f64 = std::u64::MAX as f64;
 
 #[derive(Default, Debug)]
 pub struct SampleResult {
-    pub rule_rate: f32,
-    pub limiter_rate: f32,
+    pub rule_rate: f64,
+    pub limiter_rate: f64,
     pub priority_rate: f32,
     pub sampling_priority: Option<SamplingPriority>,
+}
+
+impl SampleResult {
+    pub fn new() -> SampleResult {
+        Self {
+            rule_rate: std::f64::NAN,
+            limiter_rate: std::f64::NAN,
+            priority_rate: std::f32::NAN,
+            sampling_priority: None,
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug)]
@@ -70,16 +82,6 @@ impl PrioritySampler {
         })
     }
 
-    fn max_id_from_sample_rate(rate: f64) -> u64 {
-        if rate == 1.0 {
-            std::u64::MAX
-        } else if rate > 0.0 {
-            (rate * MAX_TRACE_ID_DOUBLE) as u64
-        } else {
-            0
-        }
-    }
-
     pub fn configure(&mut self, config: &Value) -> Result<()> {
         let mut rates = HashMap::new();
         let object = if let Value::Object(object) = config {
@@ -101,7 +103,7 @@ impl PrioritySampler {
 
             let new_rate = SamplingRate {
                 rate: rate as f32,
-                max_hash: PrioritySampler::max_id_from_sample_rate(rate),
+                max_hash: max_id_from_sample_rate(rate),
             };
             if key == PRIORITY_SAMPLER_DEFAULT_RATE_KEY {
                 data.default_sampling_rate = new_rate;

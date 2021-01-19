@@ -2,10 +2,10 @@ use crate::time_point::TimePoint;
 use eyre::{eyre, Result};
 #[cfg(test)]
 use mock_instant::Instant;
+use std::sync::Mutex;
 use std::time::Duration;
 #[cfg(not(test))]
 use std::time::Instant;
-use std::{fmt, sync::Mutex};
 
 pub(crate) struct LimitResult {
     pub allowed: bool,
