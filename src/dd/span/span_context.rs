@@ -93,11 +93,11 @@ impl SpanContext {
     }
 }
 
-impl<F> opentracing::SpanContext<F> for SpanContext
-where
-    F: Fn(&str, &str) -> bool,
-{
-    fn foreach_baggage_item(&self, f: F) -> Result<()> {
+impl opentracing::SpanContext for SpanContext {
+    fn foreach_baggage_item<F>(&self, f: F) -> Result<()>
+    where
+        F: Fn(&str, &str) -> bool,
+    {
         let data = self
             .baggage
             .lock()

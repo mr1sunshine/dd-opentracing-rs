@@ -26,10 +26,7 @@ pub(crate) enum PropagationError {
 /// Unicode strings.
 ///
 /// See the HTTPHeaders examples.
-pub(crate) trait TextMapReader<F>
-where
-    F: Fn(&str, &str) -> Result<()>,
-{
+pub(crate) trait TextMapReader {
     /// LookupKey returns the value for the specified `key` if available. If no
     /// such key is present, it returns `PropagationError::KeyNotFound`.
     ///
@@ -51,7 +48,9 @@ where
     ///
     /// The "foreach" callback pattern reduces unnecessary copying in some cases
     /// and also allows implementations to hold locks while the map is read.
-    fn foreach_key(&self, f: F) -> Result<()>;
+    fn foreach_key<F>(&self, f: F) -> Result<()>
+    where
+        F: Fn(&str, &str) -> Result<()>;
 }
 
 /// TextMapWriter is the Inject() carrier for the TextMap builtin format. With
@@ -73,11 +72,7 @@ pub(crate) trait TextMapWriter {
 /// HTTPHeadersReader is the Extract() carrier for the HttpHeaders builtin
 /// format. With it, the caller can decode a SpanContext from entries in HTTP
 /// request headers.
-pub(crate) trait HTTPHeadersReader<F>: TextMapReader<F>
-where
-    F: Fn(&str, &str) -> Result<()>,
-{
-}
+pub(crate) trait HTTPHeadersReader: TextMapReader {}
 
 /// HTTPHeadersWriter is the Inject() carrier for the TextMap builtin format.
 /// With it, the caller can encode a SpanContext for propagation as entries in
@@ -86,23 +81,17 @@ pub(crate) trait HTTPHeadersWriter: TextMapWriter {}
 
 /// CustomCarrierReader is the Extract() carrier for a custom format. With it,
 /// the caller can decode a SpanContext from entries in a custom protocol.
-pub(crate) trait CustomCarrierReader<F>
-where
-    F: Fn(&str, &str) -> bool,
-{
+pub(crate) trait CustomCarrierReader {
     /// Extract is expected to specialize on the tracer implementation so as to
     /// most efficiently decode its context.
-    fn extract(&self, tracer: &Tracer) -> Result<Box<dyn SpanContext<F>>>;
+    fn extract(&self, tracer: &Tracer) -> Result<Box<dyn SpanContext>>;
 }
 
 /// CustomCarrierWriter is the Inject() carrier for a custom format.  With it,
 /// the caller can encode a SpanContext for propagation as entries in a custom
 /// protocol.
-pub(crate) trait CustomCarrierWriter<F>
-where
-    F: Fn(&str, &str) -> bool,
-{
+pub(crate) trait CustomCarrierWriter {
     /// Inject is expected to specialize on the tracer implementation so as to most
     /// efficiently encode its context.
-    fn inject(tracer: &Tracer, sc: &dyn SpanContext<F>) -> Result<()>;
+    fn inject(tracer: &Tracer, sc: &dyn SpanContext) -> Result<()>;
 }
