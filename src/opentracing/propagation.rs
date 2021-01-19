@@ -2,6 +2,48 @@ use eyre::Result;
 
 use super::{SpanContext, Tracer};
 
+#[derive(Clone)]
+pub(crate) enum SpanReferenceType {
+    /// ChildOfRef refers to a parent Span that caused *and* somehow depends
+    /// upon the new child Span. Often (but not always), the parent Span cannot
+    /// finish until the child Span does.
+    ///
+    /// An timing diagram for a ChildOfRef that's blocked on the new Span:
+    ///
+    ///     [-Parent Span---------]
+    ///          [-Child Span----]
+    ///
+    /// See http://opentracing.io/spec/
+    ///
+    /// See opentracing.ChildOf()
+    ChildOfRef,
+    /// FollowsFromRef refers to a parent Span that does not depend in any way
+    /// on the result of the new child Span. For instance, one might use
+    /// FollowsFromRefs to describe pipeline stages separated by queues,
+    /// or a fire-and-forget cache insert at the tail end of a web request.
+    ///
+    /// A FollowsFromRef Span is part of the same logical trace as the new Span:
+    /// i.e., the new Span is somehow caused by the work of its FollowsFromRef.
+    ///
+    /// All of the following could be valid timing diagrams for children that
+    /// "FollowFrom" a parent.
+    ///
+    ///     [-Parent Span-]  [-Child Span-]
+    ///
+    ///
+    ///     [-Parent Span--]
+    ///      [-Child Span-]
+    ///
+    ///
+    ///     [-Parent Span-]
+    ///                 [-Child Span-]
+    ///
+    /// See http://opentracing.io/spec/
+    ///
+    /// See opentracing.FollowsFrom()
+    FollowsFromRef,
+}
+
 pub(crate) enum PropagationError {
     /// `InvalidSpanContext` occurs when Tracer::Inject() is asked to operate
     /// on a SpanContext which it is not prepared to handle (for example, since it
@@ -50,7 +92,8 @@ pub(crate) trait TextMapReader {
     /// and also allows implementations to hold locks while the map is read.
     fn foreach_key<F>(&self, f: F) -> Result<()>
     where
-        F: Fn(&str, &str) -> Result<()>;
+        F: Fn(&str, &str) -> Result<()>,
+        Self: Sized;
 }
 
 /// TextMapWriter is the Inject() carrier for the TextMap builtin format. With
@@ -84,7 +127,7 @@ pub(crate) trait HTTPHeadersWriter: TextMapWriter {}
 pub(crate) trait CustomCarrierReader {
     /// Extract is expected to specialize on the tracer implementation so as to
     /// most efficiently decode its context.
-    fn extract(&self, tracer: &Tracer) -> Result<Box<dyn SpanContext>>;
+    fn extract(&self, tracer: &dyn Tracer) -> Result<Box<dyn SpanContext>>;
 }
 
 /// CustomCarrierWriter is the Inject() carrier for a custom format.  With it,
@@ -93,5 +136,5 @@ pub(crate) trait CustomCarrierReader {
 pub(crate) trait CustomCarrierWriter {
     /// Inject is expected to specialize on the tracer implementation so as to most
     /// efficiently encode its context.
-    fn inject(tracer: &Tracer, sc: &dyn SpanContext) -> Result<()>;
+    fn inject(tracer: &dyn Tracer, sc: &dyn SpanContext) -> Result<()>;
 }

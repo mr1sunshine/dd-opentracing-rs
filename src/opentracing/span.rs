@@ -115,5 +115,5 @@ pub(crate) trait Span {
     fn context(&self) -> &dyn SpanContext;
 
     /// Provides access to the Tracer that created this Span.
-    fn tracer(&self) -> &Tracer;
+    fn tracer(&self) -> &dyn Tracer;
 }
